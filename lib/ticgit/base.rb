@@ -30,10 +30,13 @@ module TicGit
         @config = {}
       end
       
+      
+      
       @state = File.expand_path(File.join(@tic_dir, proj, 'state'))
       
       if File.exists?(@state)
-        load_state
+        # load_state
+        reset_ticgit
       else
         reset_ticgit
       end

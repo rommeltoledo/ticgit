@@ -9,24 +9,40 @@ module TicGit
     attr_reader :action, :options, :args, :tic
 
     def self.execute
+      # Call self.parse in cli.rb
+      # then parse returns a cli object which 
+      # in turn calls execute!
       parse(ARGV).execute!
     end
     
     def self.parse(args)
+      # call initialize in cli.rb passing the arguments to it
       cli = new(args)
+      # call parse_options! in cli.rb and verify that there are 
+      # options, if there are, the first one is the action 
       cli.parse_options!
+      # return cli
       cli
     end
 
     def initialize(args)
+      # create a shallow copy of the arguments
       @args = args.dup
+      # call open method in ticgit.rb, this in turn creates a new
+      # base from base.rb
       @tic = TicGit.open('.', :keep_state => true)
+      # no idea what this does
       $stdout.sync = true # so that Net::SSH prompts show up
+    # this is exception handling in case NoRepoFound
+    # NoRepoFound is a class tha inherits from StandardError
     rescue NoRepoFound
+      # print message and exit
       puts "No repo found"
       exit
     end    
     
+    # when the code reaches this point action has already been 
+    # filled (by parse_options!). Handle the action accordingly
     def execute!
       case action
       when 'list':
@@ -48,11 +64,84 @@ module TicGit
       when 'recent'
         handle_ticket_recent
       when 'milestone'
+        # there is a bug here, 
+        # TODO: Create a handle_ticket_milestone method
         handle_ticket_milestone
       else
         puts 'not a command'
       end
     end
+
+    # ======================================================
+    #                 Action Handling
+    # ======================================================
+    
+    # List
+    # ====
+
+    def handle_ticket_list
+      parse_ticket_list
+      
+      options[:saved] = ARGV[1] if ARGV[1]
+      
+      if tickets = tic.ticket_list(options)
+        counter = 0
+      
+        puts
+        puts [' ', just('#', 4, 'r'), 
+              just('TicId', 6),
+              just('Title', 25), 
+              just('State', 5),
+              just('Date', 5),
+              just('Assgn', 8),
+              just('Tags', 20) ].join(" ")
+            
+        a = []
+        80.times { a << '-'}
+        puts a.join('')
+
+        tickets.each do |t|
+          counter += 1
+          tic.current_ticket == t.ticket_name ? add = '*' : add = ' '
+          puts [add, just(counter, 4, 'r'), 
+                t.ticket_id[0,6], 
+                just(t.title, 25), 
+                just(t.state, 5),
+                t.opened.strftime("%m/%d"), 
+                just(t.assigned_name, 8),
+                just(t.tags.join(','), 20) ].join(" ")
+        end
+        puts
+      end
+    end
+
+    def parse_ticket_list
+      @options = {}
+      OptionParser.new do |opts|
+        opts.banner = "Usage: ti list [options]"
+        opts.on("-o ORDER", "--order ORDER", "Field to order by - one of : assigned,state,date") do |v|
+          @options[:order] = v
+        end
+        opts.on("-t TAG", "--tag TAG", "List only tickets with specific tag") do |v|
+          @options[:tag] = v
+        end
+        opts.on("-s STATE", "--state STATE", "List only tickets in a specific state") do |v|
+          @options[:state] = v
+        end
+        opts.on("-a ASSIGNED", "--assigned ASSIGNED", "List only tickets assigned to someone") do |v|
+          @options[:assigned] = v
+        end
+        opts.on("-S SAVENAME", "--saveas SAVENAME", "Save this list as a saved name") do |v|
+          @options[:save] = v
+        end
+        opts.on("-l", "--list", "Show the saved queries") do |v|
+          @options[:list] = true
+        end
+      end.parse!
+    end
+    
+
+
 
     # tic milestone
     # tic milestone migration1 (list tickets)
@@ -203,68 +292,7 @@ module TicGit
       tic.ticket_assign(options[:user], tic_id)
     end
 
-    ## LIST TICKETS ##
-    def parse_ticket_list
-      @options = {}
-      OptionParser.new do |opts|
-        opts.banner = "Usage: ti list [options]"
-        opts.on("-o ORDER", "--order ORDER", "Field to order by - one of : assigned,state,date") do |v|
-          @options[:order] = v
-        end
-        opts.on("-t TAG", "--tag TAG", "List only tickets with specific tag") do |v|
-          @options[:tag] = v
-        end
-        opts.on("-s STATE", "--state STATE", "List only tickets in a specific state") do |v|
-          @options[:state] = v
-        end
-        opts.on("-a ASSIGNED", "--assigned ASSIGNED", "List only tickets assigned to someone") do |v|
-          @options[:assigned] = v
-        end
-        opts.on("-S SAVENAME", "--saveas SAVENAME", "Save this list as a saved name") do |v|
-          @options[:save] = v
-        end
-        opts.on("-l", "--list", "Show the saved queries") do |v|
-          @options[:list] = true
-        end
-      end.parse!
-    end
-    
-    def handle_ticket_list
-      parse_ticket_list
-      
-      options[:saved] = ARGV[1] if ARGV[1]
-      
-      if tickets = tic.ticket_list(options)
-        counter = 0
-      
-        puts
-        puts [' ', just('#', 4, 'r'), 
-              just('TicId', 6),
-              just('Title', 25), 
-              just('State', 5),
-              just('Date', 5),
-              just('Assgn', 8),
-              just('Tags', 20) ].join(" ")
-            
-        a = []
-        80.times { a << '-'}
-        puts a.join('')
 
-        tickets.each do |t|
-          counter += 1
-          tic.current_ticket == t.ticket_name ? add = '*' : add = ' '
-          puts [add, just(counter, 4, 'r'), 
-                t.ticket_id[0,6], 
-                just(t.title, 25), 
-                just(t.state, 5),
-                t.opened.strftime("%m/%d"), 
-                just(t.assigned_name, 8),
-                just(t.tags.join(','), 20) ].join(" ")
-        end
-        puts
-      end
-      
-    end
     
     ## SHOW TICKETS ##
     
@@ -369,13 +397,14 @@ module TicGit
       end   
     end
     
-    def parse_options! #:nodoc:      
+    def parse_options! #:nodoc:     
+      # validate that the arguments are not empty 
       if args.empty?
         warn "Please specify at least one action to execute."
         puts " list state show new checkout comment tag assign "
         exit
       end
-
+      # if they are not then action is always the first argument
       @action = args.first
     end
     
