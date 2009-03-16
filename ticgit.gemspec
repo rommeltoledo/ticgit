@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
     s.bindir = 'bin'
     s.executables = ["ti", "ticgitweb"]
     s.default_executable = %q{ti}
-    s.homepage = "http://github/schacon/ticgit"
+    s.homepage = "http://github/malife/ticgit"
 
     s.require_paths = ["lib", "bin"]
     s.specification_version = 2 if s.respond_to? :specification_version=
