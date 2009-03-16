@@ -80,10 +80,14 @@ module TicGit
     # ====
 
     def handle_ticket_list
+      #  Parse the command line options and modify the 
+      #  options instance variable
       parse_ticket_list
       
+      #  If ARGV[1] has a value, assign it to options[:saved]
       options[:saved] = ARGV[1] if ARGV[1]
       
+      #  tic.ticket_list returns an array of tickets
       if tickets = tic.ticket_list(options)
         counter = 0
       
@@ -116,24 +120,35 @@ module TicGit
     end
 
     def parse_ticket_list
+      # create an empty hash
       @options = {}
+      
+      # start the option parser
       OptionParser.new do |opts|
+        # add the banner
         opts.banner = "Usage: ti list [options]"
+        
+        # add all the options to the command line
         opts.on("-o ORDER", "--order ORDER", "Field to order by - one of : assigned,state,date") do |v|
           @options[:order] = v
         end
+        
         opts.on("-t TAG", "--tag TAG", "List only tickets with specific tag") do |v|
           @options[:tag] = v
         end
+        
         opts.on("-s STATE", "--state STATE", "List only tickets in a specific state") do |v|
           @options[:state] = v
         end
+        
         opts.on("-a ASSIGNED", "--assigned ASSIGNED", "List only tickets assigned to someone") do |v|
           @options[:assigned] = v
         end
+        
         opts.on("-S SAVENAME", "--saveas SAVENAME", "Save this list as a saved name") do |v|
           @options[:save] = v
         end
+        
         opts.on("-l", "--list", "Show the saved queries") do |v|
           @options[:list] = true
         end
