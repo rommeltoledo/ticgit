@@ -22,6 +22,7 @@ require 'ticgit/cli'
 module TicGit  
   # options
   #   :logger => Logger.new(STDOUT)
+  # called from CLI class when intialized
   def self.open(git_dir, options = {})
     Base.new(git_dir, options)
   end

@@ -3,7 +3,10 @@ require 'fileutils'
 require 'yaml'
 
 module TicGit
+  # error class for no repository found
   class NoRepoFound < StandardError;end
+  
+  
   class Base
 
     attr_reader :git, :logger
@@ -12,17 +15,32 @@ module TicGit
     attr_reader :config
     attr_reader :state, :config_file
     
+    # Called from Ticgit when initialized
     def initialize(git_dir, opts = {})
+      # Open the git repositiry and create the git object
       @git = Git.open(find_repo(git_dir))
+      # If a logger was passed assign it to the instance variable,
+      # if not, then create a new to log to STDOUT
       @logger = opts[:logger] || Logger.new(STDOUT)
+      
+      # extract the git path and change / by - to create a folder 
+      # so the folder name is like home-documents-projects-ticgit
       
       proj = Ticket.clean_string(@git.dir.path)
       
+      # if the :tic_dir key pair exsts assign it to the instance variable, otherwise
+      # use the home directory
+      # TODO: This might be where to fix the "Non-consistent tickets" problem
       @tic_dir = opts[:tic_dir] || '~/.ticgit'
+      
+      # is the :working_directoy key pair exists use it, if not
+      # create a directory tic_dir/proj/working
       @tic_working = opts[:working_directory] || File.expand_path(File.join(@tic_dir, proj, 'working'))
+      
+      # load the index file
       @tic_index = opts[:index_file] || File.expand_path(File.join(@tic_dir, proj, 'index'))
 
-      # load config file
+      # load config file which as far as I can tell it only contains the saved list options
       @config_file = File.expand_path(File.join(@tic_dir, proj, 'config.yml'))
       if File.exists?(config_file)
         @config = YAML.load(File.read(config_file))
@@ -30,13 +48,13 @@ module TicGit
         @config = {}
       end
       
-      
-      
+      # Load the state file
       @state = File.expand_path(File.join(@tic_dir, proj, 'state'))
       
+      
       if File.exists?(@state)
-        # load_state
-        reset_ticgit
+        load_state
+        # reset_ticgit
       else
         reset_ticgit
       end
@@ -44,16 +62,28 @@ module TicGit
     
     def find_repo(dir)
       full = File.expand_path(dir)
+      # ENV is the has containing the key-pairs of your environment such as
+      # MANPATH, TERM_PROGRAM, DISPLAY.
+      # This either gets the GIT_WORKING_DIR key-pair OR goes into a loop 
+      # to find the .git repository in dir
       ENV["GIT_WORKING_DIR"] || loop do
         return full if File.directory?(File.join(full, ".git"))
+        # if none is found then raise the exception
         raise NoRepoFound if full == full=File.dirname(full)
       end
     end
     
     def save_state
-      # marshal dump the internals
+      # marshal dump the internals to the local directory
+      # TODO: Maybe the state should be inside the ticgit repository so it travels with it?
+      #       or not because then different users could not save their current state
+      #       but, what should be is some sort of flag to rebuild the state when fetching
+      #       updates from a repository and at the same time preserve the state, specially
+      #       current tickets
       File.open(@state, 'w') { |f| Marshal.dump([@tickets, @last_tickets, @current_ticket], f) } rescue nil
-      # save config file
+      # save config file. 
+      # Note that it is using the accessor method for config instead of the instance variable
+      # is there a particular reason for that?
       File.open(@config_file, 'w') { |f| f.write(config.to_yaml) }
     end
     
