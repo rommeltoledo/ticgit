@@ -1,6 +1,11 @@
 require 'ticgit'
 require 'optparse'
 
+#  To build the gem locally 
+#  gem build ticgit.gemspec 
+#  to install it
+#  sudo gem install ticgit-0.3.6.gem
+
 # used Cap as a model for this - thanks Jamis
 
 module TicGit
@@ -83,16 +88,20 @@ module TicGit
       #  Parse the command line options and modify the 
       #  options instance variable
       parse_ticket_list
+
       
-      #  If ARGV[1] has a value, assign it to options[:saved]
+      #  If ARGV[1] has a value it means I requested a previously saved
+      #  list, assign the name of the saved list to options[:saved]
       options[:saved] = ARGV[1] if ARGV[1]
+      
+
       
       #  tic.ticket_list returns an array of tickets
       if tickets = tic.ticket_list(options)
         counter = 0
       
         puts
-        # rpint the list header
+        # print the list header
         puts [' ', just('#', 4, 'r'), 
               just('TicId', 6),
               just('Title', 25), 
@@ -503,7 +512,8 @@ module TicGit
     def handle_ticket_recent
       # prints recent activity of the tickets
       
-      # if a ticket id is given then only the activity of that ticket is performed
+      # if a valid ticket id is given then only the activity of that ticket is listed
+      # note that this is based on the git commit history of the ticgit branch on the repository
       tic.ticket_recent(ARGV[1]).each do |commit|
         puts commit.sha[0, 7] + "  " + commit.date.strftime("%m/%d %H:%M") + "\t" + commit.message
       end
@@ -539,7 +549,7 @@ module TicGit
       # validate that the arguments are not empty 
       if args.empty?
         warn "Please specify at least one action to execute."
-        puts " list state show new checkout comment tag assign "
+        puts " list state show new checkout comment tag assign recent"
         exit
       end
       # if they are not then action is always the first argument

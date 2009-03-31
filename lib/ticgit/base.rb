@@ -11,7 +11,7 @@ module TicGit
 
     attr_reader :git, :logger
     attr_reader :tic_working, :tic_index
-    attr_reader :tickets, :last_tickets, :current_ticket  # saved in state
+    attr_reader :tickets, :last_tickets, :current_ticket  # (schacon's note)saved in state
     attr_reader :config
     attr_reader :state, :config_file
     
@@ -96,8 +96,11 @@ module TicGit
     
     # returns new Ticket
     def ticket_new(title, options = {})
+      #  Create a new ticket 
       t = TicGit::Ticket.create(self, title, options)
+      #  reset ticgit
       reset_ticgit
+      # open the ticket just created
       TicGit::Ticket.open(self, t.ticket_name, @tickets[t.ticket_name])
     end
 
@@ -106,43 +109,65 @@ module TicGit
       save_state
     end
     
-    # returns new Ticket
     def ticket_comment(comment, ticket_id = nil)
+      #  if the reverse parsing finds the ticket
       if t = ticket_revparse(ticket_id)        
+        #  open the ticket
         ticket = TicGit::Ticket.open(self, t, @tickets[t])
+        #  add the comment
         ticket.add_comment(comment)
+        #  and reset ticgit
         reset_ticgit
       end
     end
     
     # returns array of Tickets 
     def ticket_list(options = {})
-      
+      #  create local empty array
       ts = []
+      #  clear the last tickets instance variable
       @last_tickets = []
+      # if the config instance variable hash has the 'list_options' key-pair, use it
+      #  if not create an empty hash
       @config['list_options'] ||= {}
       
+      # add each ticket to the local ts array
       @tickets.to_a.each do |name, t|
         ts << TicGit::Ticket.open(self, name, t)
       end
 
+      # assign to the variable the key-pair :saved in the options hash
+      # if it exists, name will not be nil and execution will go into the if 
+      # statement
       if name = options[:saved]
+        # if the name is valid it will be assigned to c, which will contain a key pair
+        # with the options for that name, i.e. :tag=>"features"
          if c = config['list_options'][name]
+           # add the options for that saved name to the options hash
            options = c.merge(options)
          end
       end   
       
+      # if the options hash contains the :list key-pair means that the end
+      # user wants to see a list of saved lists
       if options[:list]
-        # TODO : this is a hack and i need to fix it
+        # TODO : this is a hack and i need to fix it (schacon's note)
+        # create string with the saved parameters for each named list
         config['list_options'].each do |name, opts|
           puts name + "\t" + opts.inspect
         end
+        # exit you are done with the listing
         return false
       end   
-
-      # SORTING
+       
+      
+      # if the :order key-pair exists, then the list needs to be sorted
+      # the order is typically given by field.type, i.e. date.desc
+      # by default it is ascending
       if field = options[:order]
+        # split the type from field
         field, type = field.split('.')
+        # act based on the field, sort ascending by default
         case field
         when 'assigned'
           ts = ts.sort { |a, b| a.assigned <=> b.assigned }
@@ -151,71 +176,103 @@ module TicGit
         when 'date'
           ts = ts.sort { |a, b| a.opened <=> b.opened }
         end    
+        
+        # if the type was given as descending then reverse the array
         ts = ts.reverse if type == 'desc'
       else
-        # default list
+        # default list. If no ordering was given, order by ascending date
         ts = ts.sort { |a, b| a.opened <=> b.opened }
       end
 
+      # if no options were given, add the state key-pair with open as value
       if options.size == 0
         # default list
         options[:state] = 'open'
       end
       
-      # :tag, :state, :assigned
+      # :tag it selects the elements in the array ts if the tags include the 
+      # option given in the key-pair :tag
       if t = options[:tag]
         ts = ts.select { |tag| tag.tags.include?(t) }
       end
+      
+      # :state it selects based on the state
       if s = options[:state]
         ts = ts.select { |tag| tag.state =~ /#{s}/ }
       end
+      
+      # it selects based on the assigned
       if a = options[:assigned]
         ts = ts.select { |tag| tag.assigned =~ /#{a}/ }
       end
       
+      # if the options contain the :save key-pair, it means that that particular search will
+      # be saved in the config file. Note that the :save key-pair is removed before saving 
+      # to avoid saving the same option every time the list name is invoked
       if save = options[:save]
         options.delete(:save)
         @config['list_options'][save] = options
       end
       
+      # populates the last tickets instance by scrolling each element in ts
+      # note that this happens after all the options have been parsed
       @last_tickets = ts.map { |t| t.ticket_name }
-      # :save
-
+      
+      # save the state. Particularly relevant if an option to save was given. Useless otherwise
+      # TODO: move save state inside the if of :save ?
       save_state
+      
+      # return the recently populated local array with the tickets
       ts
     end
     
     # returns single Ticket
     def ticket_show(ticket_id = nil)      
-      # ticket_id can be index of last_tickets, partial sha or nil => last ticket
+      # (schacon's note)ticket_id can be index of last_tickets, partial sha or nil => last ticket
+      # if reverse parse returns a valid ticket (i.e. not null)
       if t = ticket_revparse(ticket_id)
+        # open and show the ticket
         return TicGit::Ticket.open(self, t, @tickets[t])
       end
     end
     
-    # returns recent ticgit activity
-    # uses the git logs for this
-    def ticket_recent(ticket_id = nil)      
+    # (schacon's note)returns recent ticgit activity
+    # (schacon's note)uses the git logs for this
+    def ticket_recent(ticket_id = nil)  
+      # if a ticket_id was given
       if ticket_id
+        # reverse parse it
         t = ticket_revparse(ticket_id) 
+        # returnt its git history from the ticgit branch
         return git.log.object('ticgit').path(t)
       else 
+        # return the whole history
+        # TODO: this might be kind of crazy for a long running repository. Trim to results within
+        #       a given amount of days/weeks. Afterall, it is RECENT
         return git.log.object('ticgit')
       end
     end
     
+    
     def ticket_revparse(ticket_id)
+      # if a ticket id was given
       if ticket_id
+        # the ticket id matches the regular expresson which is looking for a number 
+        # or multiple occurances of a number, than it is likely you are selecting from a
+        # listing (i.e. 1,2,3... etch)
         if /^[0-9]*$/ =~ ticket_id
+          # if it matches then just extract it from the array and return that ticket
           if t = @last_tickets[ticket_id.to_i - 1]
             return t
           end
         else
-          # partial or full sha
+          # if it did not match
+          # (schacon's note) partial or full sha
           if ch = @tickets.select { |name, t| t['files'].assoc('TICKET_ID')[1] =~ /^#{ticket_id}/ }
             return ch.first[0]
           end
         end
+      # if no ticket id was given but there is a current ticket then return the current ticket
       elsif(@current_ticket)
         return @current_ticket
       end
