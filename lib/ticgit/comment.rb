@@ -2,7 +2,7 @@
 #
 # This library implements a git based ticketing system in a git repo
 #
-# Author::    Scott Chacon (mailto:schacon@gmail.com)
+# Authors::    Scott Chacon (mailto:schacon@gmail.com), PaulBone (http://github.com/paulboone)
 # License::   MIT License
 #
 
