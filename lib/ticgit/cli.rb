@@ -1,12 +1,15 @@
 require 'ticgit'
 require 'optparse'
 
-#  To build the gem locally 
-#  gem build ticgit.gemspec 
-#  to install it
-#  sudo gem install ticgit-0.3.6.gem
-
 # used Cap as a model for this - thanks Jamis
+
+# TicGit Library
+#
+# This library implements a git based ticketing system in a git repo
+#
+# Author::    Scott Chacon (mailto:schacon@gmail.com)
+# License::   MIT License
+#
 
 module TicGit
   class CLI

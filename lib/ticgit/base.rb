@@ -2,6 +2,14 @@ require 'logger'
 require 'fileutils'
 require 'yaml'
 
+# TicGit Library
+#
+# This library implements a git based ticketing system in a git repo
+#
+# Author::    Scott Chacon (mailto:schacon@gmail.com)
+# License::   MIT License
+#
+
 module TicGit
   # error class for no repository found
   class NoRepoFound < StandardError;end
@@ -36,10 +44,11 @@ module TicGit
       # is the :working_directoy key pair exists use it, if not
       # create a directory tic_dir/proj/working
       @tic_working = opts[:working_directory] || File.expand_path(File.join(@tic_dir, proj, 'working'))
+      puts tic_working
       
       # load the index file
       @tic_index = opts[:index_file] || File.expand_path(File.join(@tic_dir, proj, 'index'))
-
+      
       # load config file which as far as I can tell it only contains the saved list options
       @config_file = File.expand_path(File.join(@tic_dir, proj, 'config.yml'))
       if File.exists?(config_file)
@@ -278,23 +287,34 @@ module TicGit
       end
     end    
 
+    
     def ticket_tag(tag, ticket_id = nil, options = {})
-      if t = ticket_revparse(ticket_id)    
+      # if a valid ticket_id is found
+      if t = ticket_revparse(ticket_id)
+        # open the ticket
         ticket = TicGit::Ticket.open(self, t, @tickets[t])
+        # add or remove the tag according to the options
         if options[:remove]
           ticket.remove_tag(tag)
         else
           ticket.add_tag(tag)
         end
+        # reset the ticgit repository
         reset_ticgit
       end
     end
         
     def ticket_change(new_state, ticket_id = nil)
+      # if a valid ticket_id is found
       if t = ticket_revparse(ticket_id)
+        # if the new_state is a valid state
+        # TODO: Why is tic_states a method? is this a ruby design pattern?
         if tic_states.include?(new_state)
+          # get the ticket
           ticket = TicGit::Ticket.open(self, t, @tickets[t])
+          # assign the new state
           ticket.change_state(new_state)
+          # reset the ticgit repository
           reset_ticgit
         end
       end
@@ -311,7 +331,9 @@ module TicGit
     def ticket_checkout(ticket_id)
       if t = ticket_revparse(ticket_id)
         ticket = TicGit::Ticket.open(self, t, @tickets[t])
+        # assign the found ticket to the current_ticket instance var
         @current_ticket = ticket.ticket_name
+        # save that in the config file
         save_state
       end
     end
@@ -321,25 +343,41 @@ module TicGit
 
     def comment_list(ticket_id)
     end
-        
+     
+    # Why is this a method instead of a hash or a variable?
     def tic_states
       ['open', 'resolved', 'invalid', 'hold']
     end
         
-    def load_tickets
-      @tickets = {}
 
+    def load_tickets
+      # create the empty hash
+      @tickets = {}
+      # get the current repository branches. Branches are returned in arrays
+      # as ["branch_name", is_current?]
       bs = git.lib.branches_all.map { |b| b[0] }
+      
+      # if ticgit is not in the branches the working directory does not exist
+      # initialize the ticgit branch
       init_ticgit_branch(bs.include?('ticgit')) if !(bs.include?('ticgit') && File.directory?(@tic_working))
       
+      # tree is an array witch contains mode, type, sha, file/folder for each
+      # object in the branch ticgit
+      # each element in the array looks like:
+      #  "100644 blob 3074cf018984581d1015ed2fc08b9155b5447ff4\t1206206148_add-attachment-to-ticket_138/COMMENT_1206206148_schacon@gmail.com"
       tree = git.lib.full_tree('ticgit')
+      
       tree.each do |t|
+        # split the data accordingly
         data, file = t.split("\t")
         mode, type, sha = data.split(" ")
         tic = file.split('/')
-        if tic.size == 2  # directory depth
+        # if tic is a directory
+        if tic.size == 2  # (schacon's note) directory depth
           ticket, info = tic
+          # the key looks like "1206206148_add-attachment-to-ticket_138"
           @tickets[ticket] ||= { 'files' => [] }
+          # append info and sha
           @tickets[ticket]['files'] << [info, sha]
         end
       end
@@ -348,10 +386,16 @@ module TicGit
     def init_ticgit_branch(ticgit_branch = false)
       @logger.info 'creating ticgit repo branch'
       
+      # if switching to the ticgit_branch succeeds
+      # in branch yields a Git::WorkingDirectory
       in_branch(ticgit_branch) do          
+       # create the hold file
         new_file('.hold', 'hold')
+        # if ticgit_branch did not exist
         if !ticgit_branch
+          #  add
           git.add
+          #  create tjhe initial commit
           git.commit('creating the ticgit branch')
         end
       end
@@ -360,29 +404,49 @@ module TicGit
     # temporarlily switches to ticgit branch for tic work
     def in_branch(branch_exists = true)
       needs_checkout = false
+      # if the tic_working directory does not exist
       if !File.directory?(@tic_working)
+        # create it
         FileUtils.mkdir_p(@tic_working)
-        needs_checkout = true
-      end
-      if !File.exists?('.hold')
+        # mark for checkout
         needs_checkout = true
       end
       
+      # if the hold file does not exist
+      if !File.exists?('.hold')
+        # mark for checkout
+        needs_checkout = true
+      end
+      
+      # capture the current branch
       old_current = git.lib.branch_current
+      
+      # Start protected block using Ensure
+      #  Not really sure what this block does. I would think that a simple
+      # git checkout would be sufficient but apparently not. Need to look
+      # further into this.
       begin
+        # switch the HEAD ref-link to point to branch ticgit
         git.lib.change_head_branch('ticgit')
+        
+        # @tic_index is a string pointing to the tic index file
+        # i.e. /Users/malifeMb/.ticgit/-users-malifemb-documents-mariano-development-ror-ticgit/index
         git.with_index(@tic_index) do          
           git.with_working(@tic_working) do |wd|
+            # checkout ticgit
             git.lib.checkout('ticgit') if needs_checkout && branch_exists
-            yield wd
+            yield wd  # wd is Git::WorkingDirectory which is a string 
           end
         end
       ensure
+        # if something fails make sure you return to the branch you were
+        # in
         git.lib.change_head_branch(old_current)
       end
     end
           
     def new_file(name, contents)
+      # Create  file
       File.open(name, 'w') do |f|
         f.puts contents
       end
