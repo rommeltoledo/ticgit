@@ -7,9 +7,10 @@ require 'optparse'
 #
 # This library implements a git based ticketing system in a git repo
 #
-# Authors::    Scott Chacon (mailto:schacon@gmail.com), PaulBone (http://github.com/paulboone)
+# Author::    Scott Chacon (mailto:schacon@gmail.com)
 # License::   MIT License
 #
+
 module TicGit
   class CLI
     # The array of (unparsed) command-line options
@@ -56,8 +57,6 @@ module TicGit
         handle_ticket_list
       when 'state'
         handle_ticket_state
-      when 'attach'
-        handle_ticket_attach      
       when 'assign'
         handle_ticket_assign
       when 'show'
@@ -99,11 +98,11 @@ module TicGit
       options[:saved] = ARGV[1] if ARGV[1]
       
 
-
+      
       #  tic.ticket_list returns an array of tickets
       if tickets = tic.ticket_list(options)
         counter = 0
-    
+      
         puts
         # print the list header
         puts [' ', just('#', 4, 'r'), 
@@ -113,12 +112,12 @@ module TicGit
               just('Date', 5),
               just('Assgn', 8),
               just('Tags', 20) ].join(" ")
-    
+            
         # print the horizontal bar
         a = []
         80.times { a << '-'}
         puts a.join('')
-      
+
         # For each ticket in the array
         tickets.each do |t|
           # increase the counter for ticket display
@@ -134,11 +133,11 @@ module TicGit
                 t.opened.strftime("%m/%d"), 
                 just(t.assigned_name, 8),
                 just(t.tags.join(','), 20) ].join(" ")
-      end
+        end
         puts
       end
     end
-    
+
     def parse_ticket_list
       # create an empty hash
       @options = {}
@@ -159,25 +158,25 @@ module TicGit
         
         opts.on("-s STATE", "--state STATE", "List only tickets in a specific state") do |v|
           @options[:state] = v
-    end
-
+        end
+        
         opts.on("-a ASSIGNED", "--assigned ASSIGNED", "List only tickets assigned to someone") do |v|
           @options[:assigned] = v
         end
-      
+        
         opts.on("-S SAVENAME", "--saveas SAVENAME", "Save this list as a saved name") do |v|
           @options[:save] = v
         end
-      
+        
         opts.on("-l", "--list", "Show the saved queries") do |v|
           @options[:list] = true
         end
       end.parse!
-      end
-
+    end
+    
     # State
     # =====
-    
+
     # Parses the ticket and ticket state, verifies that the new
     # state is valid and if so changes the state
     def handle_ticket_state
@@ -231,10 +230,10 @@ module TicGit
     # ti assign -u {name}   (assign ticket to specified user)
     def handle_ticket_assign
       parse_ticket_assign
-
+      
       # if a checkout option was given, then check it out
       tic.ticket_checkout(options[:checkout]) if options[:checkout]
-
+      
       # if a ticket id was given
       tic_id = ARGV.size > 1 ? ARGV[1].chomp : nil
       # assing the ticket to the specified user
@@ -244,52 +243,6 @@ module TicGit
     end
 
     
-    
-   
-
-    # Attaches a file to the ticket
-    # (CODE by PaulBone)
-    # Usage:
-    # ti attach [tid] [file]
-    def handle_ticket_attach
-      # if not enough parameters
-      if ARGV.size == 1
-        puts "Usage: ti attach [tid] [filename]"
-        return
-      end
-      
-      # if two parameters are given
-      # get the ticket id and the file path
-      if ARGV.size > 2
-        tic_id = ARGV[1].chomp
-        file_path = ARGV[2].chomp
-      else 
-        # assume that only file id was given 
-        # TODO: Assumed that it will be attached to current 
-        # ticket?
-        file_path = ARGV[1].chomp
-        tic_id = nil
-      end
-      
-      # get the absolute path name
-      file_path = File.expand_path(file_path)
-      
-      # if the file does not exist
-      if (! File.exists?(file_path))
-        puts "File #{file_path} does not exist."
-        return
-      # if the file is a directory
-      elsif (! File.file?(file_path))
-        puts "File must be a file (can't be a directory)"
-        return;
-      end
-      
-      # attach the file
-      tic.ticket_attach(file_path, tic_id)
-      
-    end
-
-
     def parse_ticket_assign
       # create an empty hash
       @options = {}
@@ -309,7 +262,7 @@ module TicGit
         end
       end.parse!
     end
-    
+
     # Show
     # ====
     
@@ -362,13 +315,6 @@ module TicGit
           puts
         end
       end
-      if !t.attachments.empty?
-        puts "Attachments (#{t.attachments.size})"
-        t.attachments.reverse.each do |c| 
-          puts '  * Added ' + c.added.strftime("%m/%d %H:%M") + ' by ' + c.user          
-          puts "    #{c.filename}"
-        end
-    end
     end
     
     # New
@@ -459,7 +405,7 @@ module TicGit
         return message
       end   
     end
-    
+
     # Checkout
     # ========
     
@@ -602,11 +548,11 @@ module TicGit
       end.parse!
     end
 
-    def parse_options! #:nodoc:      
+    def parse_options! #:nodoc:     
       # validate that the arguments are not empty 
       if args.empty?
         warn "Please specify at least one action to execute."
-        puts " list state show new checkout comment tag assign attach "
+        puts " list state show new checkout comment tag assign recent"
         exit
       end
       # if they are not then action is always the first argument

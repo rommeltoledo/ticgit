@@ -6,7 +6,7 @@ require 'yaml'
 #
 # This library implements a git based ticketing system in a git repo
 #
-# Authors::    Scott Chacon (mailto:schacon@gmail.com), PaulBone (http://github.com/paulboone)
+# Author::    Scott Chacon (mailto:schacon@gmail.com)
 # License::   MIT License
 #
 
@@ -328,14 +328,6 @@ module TicGit
       end
     end
     
-    def ticket_attach(file, ticket_id = nil)
-      if t = ticket_revparse(ticket_id)
-        ticket = TicGit::Ticket.open(self, t, @tickets[t])
-        ticket.add_attachment(file)
-        reset_ticgit
-      end
-    end
-    
     def ticket_checkout(ticket_id)
       if t = ticket_revparse(ticket_id)
         ticket = TicGit::Ticket.open(self, t, @tickets[t])
@@ -459,7 +451,6 @@ module TicGit
         f.puts contents
       end
     end
-    
    
   end
 end

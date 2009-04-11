@@ -2,7 +2,7 @@
 #
 # This library implements a git based ticketing system in a git repo
 #
-# Authors::    Scott Chacon (mailto:schacon@gmail.com), PaulBone (http://github.com/paulboone)
+# Author::    Scott Chacon (mailto:schacon@gmail.com)
 # License::   MIT License
 #
 
@@ -67,9 +67,6 @@ module TicGit
           data = fname.split('_')
           if data[0] == 'ASSIGNED'
             t.assigned = data[1]
-          end
-          if data[0] == 'ATTACHMENT'
-            t.attachments << TicGit::Attachment.new(base,fname,value)
           end
           if data[0] == 'COMMENT'
             t.comments << TicGit::Comment.new(base, fname, value)
@@ -162,22 +159,6 @@ module TicGit
         base.git.add
         # commit the changes
         base.git.commit("added comment to ticket #{ticket_name}")
-      end
-    end
-    
-    def add_attachment(file) 
-      # in_branch changes to the ticgit branch and yields the branch path
-      # in the form of a Git::WorkingBranch 
-      base.in_branch do |wd|
-        # change the directory to the current ticket name
-        Dir.chdir(ticket_name) do
-          # copy the file to the ticgit branch
-          FileUtils.copy(file,attachment_name(email,File.basename(file)))
-        end
-        # add it and commit it with the message
-        # TODO: Include the filename in the commit message
-        base.git.add
-        base.git.commit("added attachment to ticket #{ticket_name}")
       end
     end
 
@@ -299,16 +280,11 @@ module TicGit
       File.join(state, ticket_name)
     end
     
-    
-    def attachment_name(email,filename)
-      'ATTACHMENT_' + Time.now.to_i.to_s + '_' + email + "@@" + filename
-    end
     def comment_name(email)
       # returns the string of form: 
       # COMMENT_1206565689_schacon@gmail.com
       'COMMENT_' + Time.now.to_i.to_s + '_' + email
     end
-    
     
     def email
       # if the email does not exist in the options has return "anon"

@@ -9,14 +9,14 @@ require 'git'
 require 'ticgit/base'
 require 'ticgit/ticket'
 require 'ticgit/comment'
-require 'ticgit/attachment'
+
 require 'ticgit/cli'
 
 # TicGit Library
 #
 # This library implements a git based ticketing system in a git repo
 #
-# Authors::    Scott Chacon (mailto:schacon@gmail.com), PaulBone (http://github.com/paulboone)
+# Author::    Scott Chacon (mailto:schacon@gmail.com)
 # License::   MIT License
 #
 module TicGit  
